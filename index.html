@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Mobile tutorial - Leaflet</title>
+
+  <link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico"/>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css" integrity="sha512-hoalWLoI8r4UszCkZ5kL8vayOGVae1oxXe/2A4AO6J9+580uKHDO3JdHb7NzwwzK5xr/Fs0W40kiNHxM9vyTtQ==" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.8.0/dist/leaflet.js" integrity="sha512-BB3hKbKWOc9Ez/TAwyWxNXeoV9c1v6FIeYiBieIWkpLjauysF18NzgR1MBNBXf8/KABdlkX68nAhlwcDFLGPCQ==" crossorigin=""></script>
+
+  <style>
+      html, body {
+          height: 100%;
+          margin: 0;
+      }
+
+      .leaflet-container {
+          height: 400px;
+          width: 600px;
+          max-width: 100%;
+          max-height: 100%;
+      }
+  </style>
+
+  <style>body {
+      padding: 0;
+      margin: 0;
+  }
+
+  #map {
+      height: 100%;
+      width: 100vw;
+  }</style>
+</head>
+<body>
+
+<div id='map'></div>
+
+<script>
+
+    function toRadians(degrees) {
+        return degrees * Math.PI / 180;
+    };
+
+    // Converts from radians to degrees.
+    function toDegrees(radians) {
+        return radians * 180 / Math.PI;
+    }
+
+
+    function bearing(startLat, startLng, destLat, destLng) {
+        startLat = toRadians(startLat);
+        startLng = toRadians(startLng);
+        destLat = toRadians(destLat);
+        destLng = toRadians(destLng);
+
+        y = Math.sin(destLng - startLng) * Math.cos(destLat);
+        x = Math.cos(startLat) * Math.sin(destLat) -
+            Math.sin(startLat) * Math.cos(destLat) * Math.cos(destLng - startLng);
+        brng = Math.atan2(y, x);
+        brng = toDegrees(brng);
+        return (brng + 360) % 360;
+    }
+
+
+    var map = L.map('map').fitWorld();
+
+    var me = L.marker([1, 1]).addTo(map)
+    var target = L.marker([1, 1]).addTo(map)
+    var targetLocation;
+
+    if (localStorage['target']) {
+        targetLocation = JSON.parse(localStorage['target']);
+        target.setLatLng(targetLocation);
+    }
+    var myLatlng;
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    function onLocationFound(e) {
+        myLatlng = e.latlng;
+        update();
+        me.setLatLng(e.latlng);
+    }
+
+
+    function onLocationError(e) {
+        alert(e.message);
+    }
+
+    map.on('locationfound', onLocationFound);
+
+    map.on('locationerror', onLocationError);
+
+    map.locate({setView: true, maxZoom: 16, watch: true});
+
+    var popup = L.popup();
+
+    var path = L.polyline([]).addTo(map);
+
+    function onMapClick(e) {
+        targetLocation = e.latlng;
+        update();
+        target.setLatLng(e.latlng);
+        localStorage['target'] = JSON.stringify(e.latlng);
+    }
+
+
+    function update() {
+        if (!targetLocation) {
+            return;
+        }
+
+        var lat1 = targetLocation.lat;
+        var lon1 = targetLocation.lng;
+
+        var lat2 = myLatlng.lat;
+        var lon2 = myLatlng.lng;
+
+        var angle = bearing(myLatlng.lat, myLatlng.lng, targetLocation.lat, targetLocation.lng)
+        path.setLatLngs([
+            myLatlng,
+            targetLocation
+        ])
+        var previousPoint;
+        path.getLatLngs().forEach(function(latLng) {
+            if (previousPoint) {
+                popup
+                    .setLatLng(myLatlng)
+                    .setContent("az: " + angle.toFixed(1) + "<br> dist: " + (previousPoint.distanceTo(latLng) / 1000).toFixed(1) + "km")
+                    .openOn(map);
+            }
+            previousPoint = latLng;
+        });
+    }
+
+    map.on('click', onMapClick);
+
+</script>
+</body>
+</html>
